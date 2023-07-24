@@ -1,0 +1,28 @@
+import torch
+import os
+import torch.nn as nn
+from XceptionNet import XceptionNet
+
+# 训练器
+class Trainer:
+    def __init__(self, net, save_path, dataset_path, use_cuda=True):
+        self.net = net # nets to train
+        self.save_path = save_path # the path to save the trained model
+        self.dataset = dataset_path
+        self.use_cuda = use_cuda
+
+        if use_cuda:
+            self.net.cuda()
+
+        if os.path.exists(self.save_path):
+            self.net.load_state_dict(torch.load(self.save_path))
+
+        # confidence loss function
+        self.conf_loss = nn.BCELoss() # 二分类交叉熵损失函数
+        # offset and landmark loss function
+        self.label_loss = nn.MSELoss() # 均方损失函数
+        # optimizer
+        self.optimizer = torch.optim.Adam(self.net.parameters())
+
+    def train(self):
+        face_data = Face_dataset

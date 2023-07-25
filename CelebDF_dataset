@@ -3,25 +3,31 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 import cv2
-from torchvision import transforms
 
 
 class CelebDFDataset(Dataset):
 
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, train_data_path, label_file_path, transform=None):
         self.root_dir = root_dir
         self.transform = transform
-        self.classes = os.listdir(root_dir)
+        self.videos = os.listdir(os.path.join(root_dir, train_data_path))
+        self.label_file_full_path = os.path.join(root_dir, label_file_path)
+        self.video_label_map = {}
+
 
     def __len__(self):
         return len(os.listdir(self.root_dir))
 
     def __getitem__(self, idx):
-        class_name = self.classes[idx]
-        class_dir = os.path.join(class_name)
-        video_files = os.listdir(class_dir)
+
+        # class_name = self.classes[idx]
+        # class_dir = os.path.join(class_name)
+        # video_files = os.listdir(class_dir)
+
         video_file = np.random.choice(video_files)
+        for
         video_path = os.path.join(class_dir, video_file)
+
         cap = cv2.VideoCapture(video_path)
         frames = []
         while True:
@@ -34,6 +40,11 @@ class CelebDFDataset(Dataset):
             frames.append(frame)
         cap.release()
         label = int(class_name == 'positive')
+        return torch.stack(frames), label
+
+    def _build_label_file_map(self):
+        with
+
         return torch.stack(frames), label
 
 

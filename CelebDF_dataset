@@ -10,7 +10,8 @@ class CelebDFDataset(Dataset):
     def __init__(self, root_dir, train_data_path, label_file_path, transform=None):
         self.root_dir = root_dir
         self.transform = transform
-        self.videos = os.listdir(os.path.join(root_dir, train_data_path))
+        self.train_data_path = os.path.join(root_dir, train_data_path)
+        self.videos = os.listdir(self.train_data_path)
         self.label_file_full_path = os.path.join(root_dir, label_file_path)
         self.video_label_map = {}  # {id0_0000.mp4:1, id0_id1_0000:0}
 
@@ -19,19 +20,21 @@ class CelebDFDataset(Dataset):
 
     def __getitem__(self, index):
         video_file = self.videos[index]
+        video_file_full_path = os.path.join(self.train_data_path, video_file)
         # video_file = np.random.choice(self.videos)
-        cap = cv2.VideoCapture(video_file)
+        cap = cv2.VideoCapture(video_file_full_path)
         frames = []
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
+            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
             if self.transform:
                 frame = self.transform(frame)
             frames.append(frame)
         cap.release()
         label = self.video_label_map.get(video_file)
+        frames = [torch.from_numpy(frame) for frame in frames]
         return torch.stack(frames), label
 
     def _build_label_file_map(self):
@@ -42,7 +45,3 @@ class CelebDFDataset(Dataset):
                 label = int(label_file.split("\t")[0])
                 file = label_file.split("\t")[1]
                 self.video_label_map[file] = label
-
-
-
-

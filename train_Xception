@@ -8,20 +8,23 @@ from celebdf_dataset import CelebDFDataset
 # 定义数据预处理
 from torchvision import transforms
 
-train_dataset_path = r"D:\trace_prediction\forgery_detection\dataset\train"
+root_dir = r"D:\trace_prediction\forgery_detection\dataset"
+train_data_path = "train"
+label_file_path = "label_file.txt"
 
-transform = transforms.Compose(
-    [transforms.Resize(256),
-     transforms.CenterCrop(224),
-     transforms.ToTensor(),
-     transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                          std=[0.229, 0.224, 0.225])])
+# transform = transforms.Compose(
+#     [transforms.Resize(256),
+#      transforms.CenterCrop(224),
+#      transforms.ToTensor(),
+#      transforms.Normalize(mean=[0.485, 0.456, 0.406],
+#                           std=[0.229, 0.224, 0.225])])
 
-train_dataset = CelebDFDataset(train_dataset_path, transform=transform)
+train_dataset = CelebDFDataset(root_dir, train_data_path, label_file_path)
+train_dataset._build_label_file_map()
 train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
 
 def train(model, train_loader, optimizer, criterion, device):
-    model.train()
+    # model.train()
     running_loss = 0.0
     for inputs, labels in train_loader:
         inputs, labels = inputs.to(device), labels.to(device)
@@ -43,5 +46,4 @@ for epoch in range(num_epochs):
     train_loss = train(model, train_loader, optimizer, criterion, device)
     print(f'Epoch {epoch + 1}/{num_epochs}, Train_Loss:{train_loss:.4f}')
 torch.save(model.state_dict(), 'model.pth')
-
 

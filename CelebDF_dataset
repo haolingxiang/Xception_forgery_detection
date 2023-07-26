@@ -43,8 +43,12 @@ class CelebDFDataset(Dataset):
         return torch.stack(frames), label
 
     def _build_label_file_map(self):
-        with
-
-        return torch.stack(frames), label
+        with (self.label_file_full_path, 'r') as f:
+            label_file_list = f.readlines()
+            for label_file in label_file_list:
+                label_file = label_file.replace("\n", "")
+                label = int(label_file.split("\t")[0])
+                file = label_file.split("\t")[1]
+                self.video_label_map[file] = label
 
 

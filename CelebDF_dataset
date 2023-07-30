@@ -3,17 +3,45 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 import cv2
-
+from sklearn.model_selection import train_test_split
 
 class CelebDFDataset(Dataset):
 
-    def __init__(self, root_dir, train_data_path, label_file_path, transform=None):
+    def __init__(self, root_dir, output_dir, label_file_path, mode='train', clip_len=16, preprocess=False):
         self.root_dir = root_dir
-        self.transform = transform
-        self.train_data_path = os.path.join(root_dir, train_data_path)
-        self.videos = os.listdir(self.train_data_path)
+        self.output_dir = output_dir
+        self.folder = os.path.join(root_dir, mode)
+        self.videos = os.listdir(self.folder)
         self.label_file_full_path = os.path.join(root_dir, label_file_path)
         self.video_label_map = {}  # {id0_0000.mp4:1, id0_id1_0000:0}
+        self.clip_len = clip_len
+        self.mode = mode
+
+        # 图片resize参数
+        self.resize_height = 128
+        self.resize_width = 171
+        self.crop_size = 112
+
+        if (not self.check_preprocess()) or preprocess:
+            print("Preprocessing of dataset, this will take long, but it will be done only once.")
+            self.preprocess()
+
+        self.fnames, labels = [], []
+        # folder：大类文件夹
+        # frames: 每一个视频对应的文件夹，存储所有数据，标签等于其上层目录的label
+        for label in sorted(os.listdir(self.folder)):
+            for fname in os.listdir(os.path.join(self.folder, label)):
+                self.fnames.append(os.path.join(self.folder, label, fname))
+                labels.append(label)
+
+        assert len(labels) == len(self.fnames)
+        print("Number of {} videos:{:d}".format(mode, len(self.fnames)))
+
+        # 创建字符串类型的标签名字与索引的对应
+        self.label2index = {label: index for index, label in enumerate(sorted(set(labels)))}
+        # 将string标签转化为int标签
+        self.label_array = np.array([self.label2index[label] for label in labels], dtype=int)
+
 
     def __len__(self):
         return len(os.listdir(self.root_dir))
@@ -28,9 +56,9 @@ class CelebDFDataset(Dataset):
             ret, frame = cap.read()
             if not ret:
                 break
-            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
-            if self.transform:
-                frame = self.transform(frame)
+            # # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
+            # if self.transform:
+            #     frame = self.transform(frame)
             frames.append(frame)
         cap.release()
         label = self.video_label_map.get(video_file)
@@ -45,3 +73,44 @@ class CelebDFDataset(Dataset):
                 label = int(label_file.split("\t")[0])
                 file = label_file.split("\t")[1]
                 self.video_label_map[file] = label
+
+    def check_preprocess(self):
+
+    def preprocess(self):
+        # 创建输出结果子文件夹
+        print("output_dir is"+str(self.output_dir))
+        if not os.path.exists(self.output_dir):
+            os.mkdir(self.output_dir)
+            os.mkdir(os.path.join(self.output_dir, 'train'))
+            os.mkdir(os.path.join(self.output_dir, 'val'))
+            os.mkdir(os.path.join(self.output_dir, 'test'))
+
+        # 划分train/val/test sets
+        for file in os.listdir(self.root_dir):
+            file_path = os.path.join(self.root_dir, file) # file表示每一个视频文件夹
+            video_files = [name for name in os.listdir(file_path)] # 每一类视频中的视频文件
+            # train/val/test划分比例为0.64：0.16：0.2
+            train_and_valid, test = train_test_split(video_files, test_size=0.2, random_state=42)
+            train, val = train_and_valid(train_and_valid, test_size=0.2, random_state=42)
+
+            # 得到各个存储图片的子文件夹
+            train_dir = os.path.join(self.output_dir, 'train', file)
+            val_dir = os.path.join(self.output_dir, 'val', file)
+            test_dir = os.path.join(self.output_dir, 'test', file)
+
+            if not os.path.exists(train_dir):
+                os.mkdir(train_dir)
+            if not os.path.exists(val_dir):
+                os.mkdir(val_dir)
+            if not os.path
+
+    def process_video(self, video, save_dir):
+
+
+    def randomflip(self, buffer):
+
+    def normalize(self, buffer):
+
+    def to_tensor(self, buffer):
+
+    def load_frames(self, file_dir):

@@ -44,26 +44,19 @@ class CelebDFDataset(Dataset):
 
 
     def __len__(self):
-        return len(os.listdir(self.root_dir))
+        return len(self.fnames)
 
     def __getitem__(self, index):
-        video_file = self.videos[index]
-        video_file_full_path = os.path.join(self.train_data_path, video_file)
-        # video_file = np.random.choice(self.videos)
-        cap = cv2.VideoCapture(video_file_full_path)
-        frames = []
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            # # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
-            # if self.transform:
-            #     frame = self.transform(frame)
-            frames.append(frame)
-        cap.release()
-        label = self.video_label_map.get(video_file)
-        frames = [torch.from_numpy(frame) for frame in frames]
-        return torch.stack(frames), label
+        # 读取视频帧、预处理
+        buffer = self.load_frames(self.fnames[index])
+        buffer = self.crop(buffer, self.clip_len, self.crop_size)
+        labels = np.array(self.label_array[index])
+
+        if self.mode == 'test':
+            buffer = self.randomflip(buffer)
+        buffer = self.normalize(buffer)
+        buffer = self.to_tensor(buffer)
+        return torch.from_numpy(buffer), torch.from_numpy(labels)
 
     def _build_label_file_map(self):
         with open(self.label_file_full_path, 'r') as f:
@@ -75,6 +68,26 @@ class CelebDFDataset(Dataset):
                 self.video_label_map[file] = label
 
     def check_preprocess(self):
+        if not os.path.exists(self.output_dir):
+            return False
+        elif not os.path.exists(os.path.join(self.output_dir, 'train')):
+            return False
+
+        for ii, video_class in enumerate(os.listdir(os.path.join(self.output_dir, 'train'))):
+            for video in os.listdir(os.path.join(self.output_dir, 'train', video_class)):
+                video_name = os.path.join(os.path.join(self.output_dir, 'train', video_class, video),
+                                          sorted(os.listdir(os.path.join(self.output_dir, 'train', video_class, video)))[0])
+                image = cv2.imread(video_name)
+                if np.shape(image)[0] != 128 or np.shape(image)[1] != 171:
+                    return False
+                else:
+                    break
+
+            if ii == 10:
+                break
+
+        return True
+
 
     def preprocess(self):
         # 创建输出结果子文件夹
@@ -102,15 +115,92 @@ class CelebDFDataset(Dataset):
                 os.mkdir(train_dir)
             if not os.path.exists(val_dir):
                 os.mkdir(val_dir)
-            if not os.path
+            if not os.path.exists(test_dir):
+                os.mkdir(test_dir)
 
-    def process_video(self, video, save_dir):
+            # 处理视频，将其存储到对应的文件夹
+            for video in train:
+                self.process_video(video, file, train_dir)
 
+            for video in val:
+                self.process_video(video, file, val_dir)
+
+            for video in test:
+                self.process_video(video, file, test_dir)
+
+        print("Preprocessing finished")
+
+
+    def process_video(self, video, type, save_dir):
+        video_filename = video.split('.')[0]
+        if not os.path.exists(os.path.join(save_dir, video_filename)):
+            os.mkdir(os.path.join(save_dir, video_filename))
+
+        capture = cv2.VideoCapture(os.path.join(save_dir, video_filename))
+
+        frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        # 确保至少有16帧，默认抽帧频率为4，最低为1，如果视频总长度少于16帧，会报错
+        EXTRACT_FREQUENCY = 4
+        if frame_count // EXTRACT_FREQUENCY <= 16:
+            EXTRACT_FREQUENCY -= 1
+            if frame_count // EXTRACT_FREQUENCY <= 16:
+                EXTRACT_FREQUENCY -= 1
+                if frame_count // EXTRACT_FREQUENCY <= 16:
+                    EXTRACT_FREQUENCY -= 1
+
+        count = 0
+        i = 0
+        retaining = True
+
+        while(count < frame_count and retaining):
+            retaining, frame = capture.read()
+            if frame is None:
+                continue
+
+            if count % EXTRACT_FREQUENCY == 0:
+                if (frame_height != self.resize_height) or (frame_width != self.resize_width):
+                    frame = cv2.resize(frame, (self.resize_width, self.resize_height))
+                cv2.imwrite(filename=os.path.join(save_dir, video_filename, '0000{}.jpg'.format(str(i))), img=frame)
+                i += 1
+            count += 1
+
+        capture.release()
 
     def randomflip(self, buffer):
 
+
     def normalize(self, buffer):
+
 
     def to_tensor(self, buffer):
 
+
     def load_frames(self, file_dir):
+        frames = sorted([os.path.join(file_dir, img) for img in os.listdir(file_dir)])
+        frame_count = len(frames)
+        buffer = np.empty((frame_count, self.resize_height, self.resize_width, 3), np.dtype('float32'))
+        for i, frame_name in enumerate(frames):
+            frame = np.array(cv2.imread(frame_name)).astype(np.float64)
+            buffer[i] = frame
+        return buffer
+
+    def crop(self, buffer, clip_len, crop_size):
+        # 随机选择时间切片参数
+        if(buffer.shape[0] <= clip_len):
+            print("该视频没有足够的帧数可供选择")
+            time_index = 0
+        else:
+            time_index = np.random.randint(buffer.shape[0] - clip_len)
+
+        # 随机选择空间裁剪参数
+        height_index = np.random.randint(buffer.shape[1] - crop_size)
+        width_index = np.random.randint(buffer.shape[2] - crop_size)
+
+        buffer = buffer[time_index:time_index + clip_len,
+                 height_index:height_index + crop_size,
+                 width_index:width_index + crop_size, :]
+
+        return buffer

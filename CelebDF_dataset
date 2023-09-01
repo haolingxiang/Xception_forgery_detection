@@ -13,7 +13,6 @@ class CelebDFDataset(Dataset):
         self.folder = os.path.join(root_dir, mode)
         self.videos = os.listdir(self.folder)
         self.label_file_full_path = os.path.join(root_dir, label_file_path)
-        self.video_label_map = {}  # {id0_0000.mp4:1, id0_id1_0000:0}
         self.clip_len = clip_len
         self.mode = mode
 

@@ -1,0 +1,50 @@
+import cv2
+from tqdm import tqdm
+import os
+import argparse
+
+
+DATASET_PATHS = {
+    'original':'original_sequences'
+}
+COMPRESSION = ['c0', 'c23', 'c40']
+
+def extract_frames(data_path, output_path):
+    os.makedirs(output_path, exist_ok=True)
+    reader = cv2.VideoCapture(data_path)
+    frame_num = 0
+    while reader.isOpened():
+        success, image = reader.read()
+        if not success:
+            break
+        cv2.imwrite(os.path.join(output_path, '{:04d}.png'.format(frame_num)), image)
+        frame_num += 1
+    reader.release()
+
+
+def extract_method_videos(data_path, dataset):
+    videos_path = os.path.join(data_path, DATASET_PATHS[dataset], 'videos')
+    images_path = os.path.join(data_path, DATASET_PATHS[dataset], 'images')
+    for video in tqdm(os.listdir(videos_path)):
+        image_folder = video.split('.')[0]
+        extract_frames(os.path.join(videos_path, video),
+                       os.path.join(images_path, image_folder))
+
+
+if __name__ == '__main__':
+    p = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    p.add_argument('--data_path', type=str)
+    p.add_argument('--dataset', '-d', type=str,
+                   choices=list(DATASET_PATHS.keys()) + ['all'],
+                   default='all')
+    # p.add_argument('--compression', '-c', type=str, choices=COMPRESSION, default='c0')
+    args = p.parse_args()
+
+    if args.dataset == 'all':
+        for dataset in DATASET_PATHS.keys():
+            args.dataset = dataset
+            extract_method_videos(**vars(args))
+    else:
+        extract_method_videos(**vars(args))
